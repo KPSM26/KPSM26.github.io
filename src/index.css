@@ -1,0 +1,158 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* DayDock — calm, minimal productivity widget
+ * Option A: off-white background, dark gray text, muted green accent.
+ */
+
+@layer base {
+  :root {
+    --background: 34 37% 95%;
+    --foreground: 24 20% 15%;
+
+    --card: 38 45% 98%;
+    --card-foreground: 24 20% 15%;
+
+    --popover: 38 45% 98%;
+    --popover-foreground: 24 20% 15%;
+
+    --primary: 150 31% 37%;
+    --primary-foreground: 36 33% 97%;
+
+    --secondary: 36 30% 91%;
+    --secondary-foreground: 24 18% 23%;
+
+    --muted: 33 26% 92%;
+    --muted-foreground: 24 12% 43%;
+
+    --accent: 20 68% 63%;
+    --accent-foreground: 20 22% 14%;
+
+    --destructive: 0 55% 50%;
+    --destructive-foreground: 0 0% 100%;
+
+    --priority-high: 5 71% 61%;
+    --priority-med: 34 77% 59%;
+    --priority-low: 150 31% 37%;
+
+    --border: 30 23% 84%;
+    --input: 32 25% 88%;
+    --ring: 150 31% 37%;
+
+    --radius: 0.9rem;
+
+    --shadow-soft: 0 1px 2px hsl(24 30% 20% / 0.04), 0 16px 40px hsl(24 30% 20% / 0.08);
+    --shadow-fab: 0 8px 16px hsl(24 35% 18% / 0.08), 0 20px 40px hsl(24 35% 18% / 0.12);
+    --bg-wash-a: radial-gradient(circle at top left, hsl(18 85% 80% / 0.22), transparent 24rem);
+    --bg-wash-b: radial-gradient(circle at top right, hsl(150 45% 76% / 0.18), transparent 20rem);
+    --bg-base: linear-gradient(180deg, hsl(var(--background)), hsl(36 28% 93%));
+
+    --transition-smooth: cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  .dark {
+    --background: 45 11% 11%;
+    --foreground: 45 18% 92%;
+
+    --card: 42 10% 14%;
+    --card-foreground: 60 8% 93%;
+
+    --popover: 42 10% 14%;
+    --popover-foreground: 60 8% 93%;
+
+    --primary: 108 34% 62%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 44 9% 19%;
+    --secondary-foreground: 45 12% 85%;
+
+    --muted: 44 8% 17%;
+    --muted-foreground: 40 10% 66%;
+
+    --accent: 24 73% 67%;
+    --accent-foreground: 24 22% 14%;
+
+    --destructive: 0 55% 55%;
+    --destructive-foreground: 0 0% 100%;
+
+    --priority-high: 6 72% 64%;
+    --priority-med: 36 76% 62%;
+    --priority-low: 108 34% 62%;
+
+    --border: 42 10% 24%;
+    --input: 42 10% 20%;
+    --ring: 108 34% 62%;
+
+    --shadow-soft: 0 1px 2px hsl(0 0% 0% / 0.22), 0 18px 38px hsl(0 0% 0% / 0.22);
+    --shadow-fab: 0 2px 4px hsl(0 0% 0% / 0.30), 0 10px 22px hsl(0 0% 0% / 0.24);
+    --bg-wash-a: radial-gradient(circle at top left, hsl(18 65% 52% / 0.18), transparent 22rem);
+    --bg-wash-b: radial-gradient(circle at top right, hsl(108 44% 48% / 0.16), transparent 18rem);
+    --bg-base: linear-gradient(180deg, hsl(var(--background)), hsl(42 10% 12%));
+  }
+}
+
+@layer base {
+  * { @apply border-border; }
+
+  html, body, #root { height: 100%; }
+
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-feature-settings: "cv11", "ss01";
+    letter-spacing: -0.01em;
+    background-image: var(--bg-wash-a), var(--bg-wash-b), var(--bg-base);
+  }
+
+  ::selection { background: hsl(var(--primary) / 0.18); }
+}
+
+@layer components {
+  .scrollbar-thin::-webkit-scrollbar { width: 6px; }
+  .scrollbar-thin::-webkit-scrollbar-track { background: transparent; }
+  .scrollbar-thin::-webkit-scrollbar-thumb {
+    background: hsl(var(--border));
+    border-radius: 999px;
+  }
+
+  .section-title {
+    @apply flex items-center gap-2 px-4 pb-1 pt-3 text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground;
+  }
+
+  .kbd {
+    @apply inline-flex h-[18px] min-w-[18px] items-center justify-center rounded border border-border bg-background px-1 font-mono text-[10px] font-medium text-muted-foreground;
+  }
+
+  .surface-panel {
+    @apply rounded-[28px] border border-border/70 bg-card/80 backdrop-blur-sm;
+    box-shadow: var(--shadow-soft);
+    background-image: linear-gradient(180deg, hsl(var(--card) / 0.94), hsl(var(--card) / 0.84));
+  }
+
+  .surface-card {
+    @apply rounded-2xl border border-border/60 bg-card;
+    box-shadow: var(--shadow-soft);
+    background-image: linear-gradient(180deg, hsl(var(--card) / 0.96), hsl(var(--card) / 0.9));
+  }
+}
+
+@layer utilities {
+  .animate-in-fade { animation: fade-up 0.4s var(--transition-smooth) both; }
+  .animate-slide-in { animation: slide-in 0.28s var(--transition-smooth) both; }
+
+  .timeblock:hover,
+  .timeblock:focus-visible {
+    box-shadow:
+      0 0 0 1px hsl(var(--primary) / 0.28),
+      0 18px 36px -18px hsl(var(--accent) / 0.65);
+  }
+}
+
+@keyframes fade-up {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes slide-in {
+  from { opacity: 0; transform: translateY(4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
