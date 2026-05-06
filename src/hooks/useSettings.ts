@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback } from "react";
+import { readJSON, STORAGE_KEYS, writeJSON } from "@/lib/local-store";
 
-const SETTINGS_KEY = "daydock.settings.v1";
+const SETTINGS_KEY = STORAGE_KEYS.settings;
 
 export type Theme = "system" | "light" | "dark";
 export type BufferStyle = "gap" | "dot";
@@ -9,35 +10,39 @@ export interface AppSettings {
   theme: Theme;
   notifications: boolean;
   widgetEnabled: boolean;
+  planningStatusVisible: boolean;
   bufferEnabled: boolean;
   bufferStyle: BufferStyle;
   bufferDurationMin: number;
   bufferNotes: Record<string, string>;
+  cloudSyncEnabled: boolean;
+  supabaseUrl: string;
+  supabaseAnonKey: string;
+  syncCode: string;
 }
 
 export const defaultSettings: AppSettings = {
   theme: "system",
   notifications: false,
   widgetEnabled: true,
+  planningStatusVisible: true,
   bufferEnabled: false,
   bufferStyle: "gap",
   bufferDurationMin: 5,
   bufferNotes: {},
+  cloudSyncEnabled: false,
+  supabaseUrl: "",
+  supabaseAnonKey: "",
+  syncCode: import.meta.env.VITE_DAYDOCK_SYNC_CODE?.trim() || "",
 };
 
 export function loadSettings(): AppSettings {
-  try {
-    const raw = localStorage.getItem(SETTINGS_KEY);
-    if (raw) return { ...defaultSettings, ...JSON.parse(raw) };
-  } catch {}
-  return defaultSettings;
+  return { ...defaultSettings, ...readJSON<Partial<AppSettings>>(SETTINGS_KEY, {}) };
 }
 
 export function saveSettings(s: AppSettings) {
-  try {
-    localStorage.setItem(SETTINGS_KEY, JSON.stringify(s));
-    window.dispatchEvent(new CustomEvent("daydock:settings-change"));
-  } catch {}
+  writeJSON(SETTINGS_KEY, s);
+  window.dispatchEvent(new CustomEvent("daydock:settings-change"));
 }
 
 export function useSettings() {

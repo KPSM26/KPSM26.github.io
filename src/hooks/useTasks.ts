@@ -1,27 +1,28 @@
 import { useEffect, useState } from "react";
 import { Task } from "@/lib/types";
 import { sampleTasks, todayISO, uid } from "@/lib/task-utils";
+import { readJSON, STORAGE_KEYS, writeJSON } from "@/lib/local-store";
 
-const STORAGE_KEY = "daydock.tasks.v1";
-const META_KEY = "daydock.meta.v1";
-const STANDUP_CLEANUP_KEY = "daydock.tasks.migration.standup-cleanup.v1";
+const STORAGE_KEY = STORAGE_KEYS.tasks;
+const META_KEY = STORAGE_KEYS.taskMeta;
+const STANDUP_CLEANUP_KEY = STORAGE_KEYS.standupCleanup;
 
 export function useTasks() {
   const [tasks, setTasks] = useState<Task[]>(() => {
     try {
-      const raw = localStorage.getItem(STORAGE_KEY);
-      if (raw) {
-        let parsed: Task[] = JSON.parse(raw);
+      const parsed = readJSON<Task[] | null>(STORAGE_KEY, null);
+      if (parsed) {
+        let nextParsed = parsed;
         if (!localStorage.getItem(STANDUP_CLEANUP_KEY)) {
-          parsed = parsed.filter(t => t.title.trim().toLowerCase() !== "morning standup");
-          localStorage.setItem(STORAGE_KEY, JSON.stringify(parsed));
+          nextParsed = parsed.filter(t => t.title.trim().toLowerCase() !== "morning standup");
+          writeJSON(STORAGE_KEY, nextParsed, { touch: false });
           localStorage.setItem(STANDUP_CLEANUP_KEY, "1");
         }
-        return parsed;
+        return nextParsed;
       }
     } catch {}
     const seeded = sampleTasks();
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(seeded));
+    writeJSON(STORAGE_KEY, seeded, { touch: false });
     localStorage.setItem(STANDUP_CLEANUP_KEY, "1");
     return seeded;
   });
@@ -33,7 +34,7 @@ export function useTasks() {
     const todayDow = todayDate.getDay(); // 0=Sun...6=Sat
 
     let meta: { lastRoll?: string } = {};
-    try { meta = JSON.parse(localStorage.getItem(META_KEY) || "{}"); } catch {}
+    meta = readJSON<{ lastRoll?: string }>(META_KEY, {});
     if (meta.lastRoll === today) return;
 
     setTasks(prev => {
@@ -61,11 +62,11 @@ export function useTasks() {
       return clones.length ? [...prev, ...clones] : prev;
     });
 
-    localStorage.setItem(META_KEY, JSON.stringify({ lastRoll: today }));
+    writeJSON(META_KEY, { lastRoll: today });
   }, []);
 
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(tasks));
+    writeJSON(STORAGE_KEY, tasks);
   }, [tasks]);
 
   // Sync state when the other Tauri window writes to localStorage

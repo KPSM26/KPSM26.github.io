@@ -4,6 +4,7 @@ type Props = {
   scheduledMinutes: number;
   unscheduledMinutes: number;
   planningState: "realistic" | "tight" | "overloaded";
+  showPlanningStatus: boolean;
   onAutoPlanToday: () => void;
   onReplanWeek: () => void;
   className?: string;
@@ -13,6 +14,7 @@ export const PlanningSummary = ({
   scheduledMinutes,
   unscheduledMinutes,
   planningState,
+  showPlanningStatus,
   onAutoPlanToday,
   onReplanWeek,
   className,
@@ -27,20 +29,24 @@ export const PlanningSummary = ({
         className
       )}
     >
-      <div className="min-w-0">
-        <p
-          className={cn(
-            "text-[11px] font-medium",
-            planningState === "realistic" && "text-emerald-700",
-            planningState === "tight" && "text-amber-700",
-            planningState === "overloaded" && "text-red-700"
-          )}
-        >
-          {planningState === "realistic" && "Plan looks realistic."}
-          {planningState === "tight" && "You are close to capacity today."}
-          {planningState === "overloaded" && "Today is overloaded. Split or defer work."}
-        </p>
-      </div>
+      {showPlanningStatus ? (
+        <div className="min-w-0">
+          <p
+            className={cn(
+              "text-[11px] font-medium",
+              planningState === "realistic" && "text-emerald-700",
+              planningState === "tight" && "text-amber-700",
+              planningState === "overloaded" && "text-red-700"
+            )}
+          >
+            {planningState === "realistic" && "Plan looks realistic."}
+            {planningState === "tight" && "You are close to capacity today."}
+            {planningState === "overloaded" && "Today is overloaded. Split or defer work."}
+          </p>
+        </div>
+      ) : (
+        <div className="min-w-0" />
+      )}
 
       <div className="flex flex-wrap items-center gap-2">
         <div className="rounded-full border border-border/60 bg-card/80 px-3 py-1.5 text-[11px] text-foreground">

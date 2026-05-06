@@ -3,6 +3,7 @@ import { HashRouter, Route, Routes } from "react-router-dom";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { CloudSyncProvider } from "@/hooks/useCloudSync";
 import { TasksProvider } from "@/hooks/useTasksCtx";
 import { TaskDragProvider } from "@/hooks/useTaskDrag";
 import Index from "./pages/Index.tsx";
@@ -15,16 +16,18 @@ const App = () => (
     <TooltipProvider>
       <Toaster />
       <Sonner />
-      <TasksProvider>
-        <TaskDragProvider>
-        <HashRouter>
-          <Routes>
-            <Route path="/" element={<Index />} />
-            <Route path="*" element={<NotFound />} />
-          </Routes>
-        </HashRouter>
-        </TaskDragProvider>
-      </TasksProvider>
+      <CloudSyncProvider>
+        <TasksProvider>
+          <TaskDragProvider>
+          <HashRouter>
+            <Routes>
+              <Route path="/" element={<Index />} />
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </HashRouter>
+          </TaskDragProvider>
+        </TasksProvider>
+      </CloudSyncProvider>
     </TooltipProvider>
   </QueryClientProvider>
 );

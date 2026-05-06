@@ -1,20 +1,17 @@
 import { useEffect, useState } from "react";
 import { TimeBlock } from "@/lib/timeblock-types";
 import { uid } from "@/lib/task-utils";
+import { readJSON, STORAGE_KEYS, writeJSON } from "@/lib/local-store";
 
-const STORAGE_KEY = "daydock.blocks.v1";
+const STORAGE_KEY = STORAGE_KEYS.legacyBlocks;
 
 export function useTimeBlocks() {
   const [blocks, setBlocks] = useState<TimeBlock[]>(() => {
-    try {
-      const raw = localStorage.getItem(STORAGE_KEY);
-      if (raw) return JSON.parse(raw);
-    } catch {}
-    return [];
+    return readJSON<TimeBlock[]>(STORAGE_KEY, []);
   });
 
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(blocks));
+    writeJSON(STORAGE_KEY, blocks);
   }, [blocks]);
 
   // Cross-window sync — fires when the calendar window updates blocks

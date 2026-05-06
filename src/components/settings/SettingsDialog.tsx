@@ -1,11 +1,28 @@
 import { useEffect } from "react";
-import { Bell, Monitor, Moon, Sun, LayoutDashboard, Timer, Minus, Plus } from "lucide-react";
+import {
+  Bell,
+  Cloud,
+  Download,
+  KeyRound,
+  LayoutDashboard,
+  Link2,
+  MessageSquareText,
+  Minus,
+  Monitor,
+  Moon,
+  Plus,
+  Sun,
+  Timer,
+} from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { cn } from "@/lib/utils";
 import { useSettings, type Theme, type BufferStyle } from "@/hooks/useSettings";
+import { useCloudSync } from "@/hooks/useCloudSync";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 
 const themes: { id: Theme; icon: typeof Sun; label: string }[] = [
   { id: "light", icon: Sun, label: "Light" },
@@ -20,6 +37,7 @@ interface Props {
 
 export const SettingsDialog = ({ open, onOpenChange }: Props) => {
   const { settings, update } = useSettings();
+  const { status, message, lastSyncedAt, canInstall, installApp, isStandalone, syncNow } = useCloudSync();
 
   useEffect(() => {
     const root = document.documentElement;
@@ -188,6 +206,160 @@ export const SettingsDialog = ({ open, onOpenChange }: Props) => {
                 </div>
               </div>
             )}
+          </section>
+
+          {/* Planning */}
+          <section className="px-5 py-4">
+            <p className="mb-3 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+              Planning
+            </p>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <MessageSquareText className="h-4 w-4 text-muted-foreground" />
+                <Label htmlFor="planning-status-visible" className="cursor-pointer text-[13px]">
+                  Show planning bar
+                </Label>
+              </div>
+              <Switch
+                id="planning-status-visible"
+                checked={settings.planningStatusVisible}
+                onCheckedChange={v => update({ planningStatusVisible: v })}
+              />
+            </div>
+            <p className="mt-1.5 text-[11px] text-muted-foreground/70">
+              Shows or hides the planning strip at the top of the schedule.
+            </p>
+          </section>
+
+          {/* PWA */}
+          <section className="px-5 py-4">
+            <p className="mb-3 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+              Install App
+            </p>
+            <div className="rounded-xl border border-border/60 bg-muted/25 p-3">
+              <div className="flex items-start gap-2.5">
+                <Download className="mt-0.5 h-4 w-4 text-muted-foreground" />
+                <div className="space-y-1">
+                  <p className="text-[13px] font-medium text-foreground">
+                    {isStandalone ? "DayDock is already installed." : "Install DayDock on your phone."}
+                  </p>
+                  <p className="text-[11px] leading-relaxed text-muted-foreground/80">
+                    On iPhone, open DayDock in Safari and use Share then Add to Home Screen.
+                  </p>
+                </div>
+              </div>
+
+              {canInstall && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="mt-3 h-8"
+                  onClick={() => void installApp()}
+                >
+                  Install from this device
+                </Button>
+              )}
+            </div>
+          </section>
+
+          {/* Cloud Sync */}
+          <section className="px-5 py-4">
+            <p className="mb-3 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+              Cloud Sync
+            </p>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <Cloud className="h-4 w-4 text-muted-foreground" />
+                <Label htmlFor="cloud-sync-enabled" className="cursor-pointer text-[13px]">
+                  Sync with Supabase
+                </Label>
+              </div>
+              <Switch
+                id="cloud-sync-enabled"
+                checked={settings.cloudSyncEnabled}
+                onCheckedChange={v => update({ cloudSyncEnabled: v })}
+              />
+            </div>
+            <p className="mt-1.5 text-[11px] text-muted-foreground/70">
+              Keeps your schedule shared between devices while still working offline.
+            </p>
+
+            <div className="mt-4 space-y-3">
+              <div className="space-y-1.5">
+                <Label htmlFor="supabase-url" className="text-[11px] text-muted-foreground">
+                  Supabase URL
+                </Label>
+                <div className="relative">
+                  <Link2 className="pointer-events-none absolute left-3 top-2.5 h-3.5 w-3.5 text-muted-foreground/60" />
+                  <Input
+                    id="supabase-url"
+                    value={settings.supabaseUrl}
+                    onChange={e => update({ supabaseUrl: e.target.value })}
+                    className="pl-9 text-[12px]"
+                    placeholder="https://your-project.supabase.co"
+                    autoCapitalize="none"
+                    autoCorrect="off"
+                    spellCheck={false}
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label htmlFor="supabase-anon-key" className="text-[11px] text-muted-foreground">
+                  Supabase anon key
+                </Label>
+                <div className="relative">
+                  <KeyRound className="pointer-events-none absolute left-3 top-2.5 h-3.5 w-3.5 text-muted-foreground/60" />
+                  <Input
+                    id="supabase-anon-key"
+                    value={settings.supabaseAnonKey}
+                    onChange={e => update({ supabaseAnonKey: e.target.value })}
+                    className="pl-9 text-[12px]"
+                    placeholder="Paste the public anon key"
+                    autoCapitalize="none"
+                    autoCorrect="off"
+                    spellCheck={false}
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label htmlFor="sync-code" className="text-[11px] text-muted-foreground">
+                  Shared sync code
+                </Label>
+                <Input
+                  id="sync-code"
+                  value={settings.syncCode}
+                  onChange={e => update({ syncCode: e.target.value })}
+                  className="text-[12px]"
+                  placeholder="Use the same code on every device"
+                  autoCapitalize="none"
+                  autoCorrect="off"
+                  spellCheck={false}
+                />
+              </div>
+
+              <div className="rounded-xl border border-border/60 bg-muted/25 p-3 text-[11px] text-muted-foreground/80">
+                <p className="font-medium text-foreground/80">Status: {status}</p>
+                <p className="mt-1 leading-relaxed">{message}</p>
+                {lastSyncedAt && (
+                  <p className="mt-1 text-muted-foreground/70">
+                    Last sync: {new Date(lastSyncedAt).toLocaleString()}
+                  </p>
+                )}
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  className="mt-3 h-8"
+                  onClick={() => void syncNow()}
+                  disabled={!settings.cloudSyncEnabled}
+                >
+                  Sync now
+                </Button>
+              </div>
+            </div>
           </section>
 
           {/* Notifications */}

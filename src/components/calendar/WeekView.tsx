@@ -1,6 +1,7 @@
 import { useMemo, useRef, useState, useEffect, useCallback } from "react";
 import { ChevronLeft, ChevronRight, Target, X, RotateCcw } from "lucide-react";
 import { useBlocks } from "@/hooks/useBlocks";
+import { useSettings } from "@/hooks/useSettings";
 import { useTasksCtx } from "@/hooks/useTasksCtx";
 import { useWeekPlanning } from "@/hooks/useWeekPlanning";
 import { DayColumn } from "./DayColumn";
@@ -52,6 +53,7 @@ export const WeekView = () => {
   } = useBlocks();
 
   const { tasks, updateTask } = useTasksCtx();
+  const { settings } = useSettings();
 
   const [weekStart, setWeekStart] = useState(() => startOfWeekMonday(new Date()));
   const [editor, setEditor] = useState<EditorDraft | null>(null);
@@ -64,6 +66,7 @@ export const WeekView = () => {
   const [intentionEditing, setIntentionEditing] = useState(false);
   const [intentionDraft, setIntentionDraft] = useState("");
   const scrollRef = useRef<HTMLDivElement>(null);
+  const lastAutoScrollKeyRef = useRef<string | null>(null);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } })
@@ -151,6 +154,10 @@ export const WeekView = () => {
   };
 
   useEffect(() => {
+    if (!calendarOpen) return;
+    const viewKey = `${viewMode}:${weekStartISO}:${weekEndISO}`;
+    if (lastAutoScrollKeyRef.current === viewKey) return;
+
     const earliestVisibleMinute = blocks.reduce((minMinute, block) => {
       return Math.min(minMinute, block.startMinute);
     }, 8 * 60);
@@ -158,8 +165,11 @@ export const WeekView = () => {
       ? Math.max(6 * 60, earliestVisibleMinute - 60)
       : 8 * 60;
     const scrollTo = Math.max(0, (anchorMinute / 60) * HOUR_PX - 24);
-    if (scrollRef.current) scrollRef.current.scrollTop = scrollTo;
-  }, [blocks, days.length, viewMode]);
+    if (scrollRef.current) {
+      scrollRef.current.scrollTop = scrollTo;
+      lastAutoScrollKeyRef.current = viewKey;
+    }
+  }, [blocks, calendarOpen, viewMode, weekStartISO, weekEndISO]);
 
   // Cmd+K → search
   useEffect(() => {
@@ -382,14 +392,17 @@ export const WeekView = () => {
                 )}
               </div>
 
-              <PlanningSummary
-                className="w-full lg:w-auto lg:min-w-[500px]"
-                scheduledMinutes={todayScheduledMinutes}
-                unscheduledMinutes={todayUnscheduledMinutes}
-                planningState={todayPlanningState}
-                onAutoPlanToday={() => autoPlanScope("today")}
-                onReplanWeek={() => autoPlanScope("week")}
-              />
+              {settings.planningStatusVisible && (
+                <PlanningSummary
+                  className="w-full lg:w-auto lg:min-w-[500px]"
+                  scheduledMinutes={todayScheduledMinutes}
+                  unscheduledMinutes={todayUnscheduledMinutes}
+                  planningState={todayPlanningState}
+                  showPlanningStatus={settings.planningStatusVisible}
+                  onAutoPlanToday={() => autoPlanScope("today")}
+                  onReplanWeek={() => autoPlanScope("week")}
+                />
+              )}
             </div>
           )}
         </div>

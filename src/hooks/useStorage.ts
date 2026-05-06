@@ -1,30 +1,21 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { AppData } from "@/types";
 import { DEFAULT_CATEGORIES } from "@/data/defaults";
+import { readJSON, STORAGE_KEYS, writeJSON } from "@/lib/local-store";
 
-const LS_KEY = "daydock.appdata.v1";
+const LS_KEY = STORAGE_KEYS.appData;
 
 const EMPTY: AppData = { blocks: [], categories: DEFAULT_CATEGORIES };
 
 function load(): AppData {
-  try {
-    const raw = localStorage.getItem(LS_KEY);
-    if (raw) {
-      const parsed = JSON.parse(raw) as AppData;
-      if (!parsed.categories || parsed.categories.length === 0) parsed.categories = DEFAULT_CATEGORIES;
-      if (!parsed.blocks) parsed.blocks = [];
-      return parsed;
-    }
-  } catch {}
-  return EMPTY;
+  const parsed = readJSON<AppData>(LS_KEY, EMPTY);
+  if (!parsed.categories || parsed.categories.length === 0) parsed.categories = DEFAULT_CATEGORIES;
+  if (!parsed.blocks) parsed.blocks = [];
+  return parsed;
 }
 
 function save(data: AppData) {
-  try {
-    localStorage.setItem(LS_KEY, JSON.stringify(data));
-  } catch (err) {
-    console.error("save failed", err);
-  }
+  writeJSON(LS_KEY, data);
 }
 
 export function useStorage() {

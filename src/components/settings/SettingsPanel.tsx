@@ -1,50 +1,13 @@
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { Settings, Bell, Monitor, Sun, Moon } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
-
-const SETTINGS_KEY = "daydock.settings.v1";
-
-type WidgetPosition = "center" | "left" | "right";
-type Theme = "system" | "light" | "dark";
-
-interface AppSettings {
-  widgetVisible: boolean;
-  widgetPosition: WidgetPosition;
-  theme: Theme;
-  notifications: boolean;
-}
-
-const defaults: AppSettings = {
-  widgetVisible: true,
-  widgetPosition: "center",
-  theme: "system",
-  notifications: false,
-};
-
-function loadSettings(): AppSettings {
-  try {
-    const raw = localStorage.getItem(SETTINGS_KEY);
-    if (raw) return { ...defaults, ...JSON.parse(raw) };
-  } catch {}
-  return defaults;
-}
-
-function saveSettings(s: AppSettings) {
-  try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(s)); } catch {}
-}
+import { useSettings, type Theme } from "@/hooks/useSettings";
 
 export const SettingsPanel = () => {
-  const [settings, setSettings] = useState<AppSettings>(loadSettings);
-
-  const update = (patch: Partial<AppSettings>) => {
-    const next = { ...settings, ...patch };
-    setSettings(next);
-    saveSettings(next);
-    return next;
-  };
+  const { settings, update } = useSettings();
 
   // Apply theme
   useEffect(() => {
@@ -59,16 +22,6 @@ export const SettingsPanel = () => {
       root.classList.toggle("dark", prefersDark);
     }
   }, [settings.theme]);
-
-  const handleWidgetToggle = (visible: boolean) => {
-    update({ widgetVisible: visible });
-  };
-
-  const positions: { id: WidgetPosition; label: string }[] = [
-    { id: "left", label: "Left" },
-    { id: "center", label: "Center" },
-    { id: "right", label: "Right" },
-  ];
 
   const themes: { id: Theme; icon: typeof Sun; label: string }[] = [
     { id: "light", icon: Sun, label: "Light" },
@@ -103,32 +56,9 @@ export const SettingsPanel = () => {
               </Label>
               <Switch
                 id="widget-visible"
-                checked={settings.widgetVisible}
-                onCheckedChange={handleWidgetToggle}
+                checked={settings.widgetEnabled}
+                onCheckedChange={v => update({ widgetEnabled: v })}
               />
-            </div>
-          </section>
-
-          <div className="mx-4 h-px bg-border/50" />
-
-          {/* Widget position */}
-          <section className="px-4 py-2">
-            <p className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/70">Position</p>
-            <div className="flex gap-1 rounded-md bg-muted/60 p-0.5">
-              {positions.map(p => (
-                <button
-                  key={p.id}
-                  onClick={() => { update({ widgetPosition: p.id }); }}
-                  className={cn(
-                    "flex-1 rounded py-1 text-[11px] font-medium transition-colors",
-                    settings.widgetPosition === p.id
-                      ? "bg-card text-foreground shadow-sm"
-                      : "text-muted-foreground hover:text-foreground"
-                  )}
-                >
-                  {p.label}
-                </button>
-              ))}
             </div>
           </section>
 
