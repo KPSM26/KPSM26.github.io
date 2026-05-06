@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { WeekView } from "@/components/Calendar/WeekView";
+import { WeekView } from "@/components/calendar/WeekView";
 import { SettingsDialog } from "@/components/settings/SettingsDialog";
 import { Settings } from "lucide-react";
 
