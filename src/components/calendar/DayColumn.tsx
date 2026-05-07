@@ -16,6 +16,12 @@ type Props = {
   onBlockResize: (block: TimeBlock, durationMinutes: number) => void;
   onCreate: (date: string, startMinute: number, durationMinutes: number) => void;
   onTaskDrop?: (taskId: string, minute: number, date: string) => void;
+  readOnly?: boolean;
+  mode?: "desktop" | "mobile-day" | "mobile-week";
+  onSlotTap?: (date: string, minute: number) => void;
+  movingBlockId?: string | null;
+  onMoveBlock?: (date: string, minute: number) => void;
+  onBlockLongPress?: (block: TimeBlock) => void;
 };
 
 type DragState = { anchor: number; current: number };
@@ -25,6 +31,12 @@ const snap = (minutes: number) =>
 
 export const DayColumn = ({
   date, isToday, blocks, categoriesById, onBlockClick, onBlockResize, onCreate, onTaskDrop,
+  readOnly = false,
+  mode = "desktop",
+  onSlotTap,
+  movingBlockId,
+  onMoveBlock,
+  onBlockLongPress,
 }: Props) => {
   const ref = useRef<HTMLDivElement>(null);
   const [drag, setDrag] = useState<DragState | null>(null);
@@ -60,10 +72,22 @@ export const DayColumn = ({
   };
 
   const handleMouseDown = (e: React.MouseEvent) => {
+    if (readOnly || mode !== "desktop") return;
     if (e.button !== 0) return;
     if ((e.target as HTMLElement).closest("[data-block]")) return;
     const m = minuteFromClientY(e.clientY);
     setDrag({ anchor: m, current: m });
+  };
+
+  const handlePointerUp = (e: React.PointerEvent) => {
+    if (readOnly || mode === "desktop") return;
+    if ((e.target as HTMLElement).closest("[data-block]")) return;
+    const minute = minuteFromClientY(e.clientY);
+    if (movingBlockId && onMoveBlock) {
+      onMoveBlock(date, minute);
+      return;
+    }
+    onSlotTap?.(date, minute);
   };
 
   useEffect(() => {
@@ -105,14 +129,20 @@ export const DayColumn = ({
     <div
       ref={setRefs}
       onMouseDown={handleMouseDown}
+      onPointerUp={handlePointerUp}
       onDragOver={handleDragOver}
       onDrop={handleDrop}
       className={cn(
         "relative border-r border-border/40 last:border-r-0 select-none bg-[linear-gradient(180deg,hsl(var(--background)/0.18),transparent_40%)]",
         isToday && "bg-[linear-gradient(180deg,hsl(var(--primary)/0.08),transparent_38%)]",
-        isOver && "bg-[linear-gradient(180deg,hsl(var(--primary)/0.12),transparent_38%)]"
+        isOver && "bg-[linear-gradient(180deg,hsl(var(--primary)/0.12),transparent_38%)]",
+        movingBlockId && !readOnly && "bg-[linear-gradient(180deg,hsl(var(--primary)/0.14),transparent_32%)]"
       )}
-      style={{ height: DAY_PX }}
+      style={{
+        height: DAY_PX,
+        overscrollBehaviorY: mode === "mobile-day" ? "none" : undefined,
+        touchAction: mode === "desktop" ? "auto" : "pan-y",
+      }}
       data-date={date}
     >
       {Array.from({ length: 24 }, (_, h) => (
@@ -130,6 +160,11 @@ export const DayColumn = ({
           category={categoriesById.get(b.categoryId)}
           onClick={() => onBlockClick(b)}
           onResize={onBlockResize}
+          readOnly={readOnly}
+          enableDrag={mode === "desktop"}
+          mobile={mode !== "desktop"}
+          isMoveSource={movingBlockId === b.id}
+          onLongPress={mode === "mobile-day" ? onBlockLongPress : undefined}
         />
       ))}
 

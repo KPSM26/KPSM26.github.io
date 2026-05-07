@@ -4,10 +4,12 @@ import { useBlocks } from "@/hooks/useBlocks";
 import { useSettings } from "@/hooks/useSettings";
 import { useTasksCtx } from "@/hooks/useTasksCtx";
 import { useWeekPlanning } from "@/hooks/useWeekPlanning";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { DayColumn } from "./DayColumn";
 import { BlockEditor, type EditorDraft } from "./BlockEditor";
 import { PlanningSummary } from "./PlanningSummary";
 import { TaskSidebar } from "./TaskSidebar";
+import { MobileWeekView } from "./MobileWeekView";
 import { SearchDialog } from "@/components/search/SearchDialog";
 import {
   Dialog,
@@ -38,7 +40,11 @@ import {
   useSensors,
 } from "@dnd-kit/core";
 
-export const WeekView = () => {
+type WeekViewProps = {
+  onOpenSettings?: () => void;
+};
+
+export const WeekView = ({ onOpenSettings }: WeekViewProps) => {
   const {
     loaded,
     categories,
@@ -54,6 +60,7 @@ export const WeekView = () => {
 
   const { tasks, updateTask } = useTasksCtx();
   const { settings } = useSettings();
+  const isMobile = useIsMobile();
 
   const [weekStart, setWeekStart] = useState(() => startOfWeekMonday(new Date()));
   const [editor, setEditor] = useState<EditorDraft | null>(null);
@@ -65,6 +72,7 @@ export const WeekView = () => {
   const [activeDragBlock, setActiveDragBlock] = useState<TimeBlock | null>(null);
   const [intentionEditing, setIntentionEditing] = useState(false);
   const [intentionDraft, setIntentionDraft] = useState("");
+  const [movingBlockId, setMovingBlockId] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const lastAutoScrollKeyRef = useRef<string | null>(null);
 
@@ -209,6 +217,10 @@ export const WeekView = () => {
   );
 
   const handleBlockClick = useCallback((block: TimeBlock) => {
+    if (movingBlockId === block.id) {
+      setMovingBlockId(null);
+      return;
+    }
     setEditor({
       id: block.id,
       title: block.title,
@@ -219,7 +231,26 @@ export const WeekView = () => {
       categoryId: block.categoryId,
       taskId: block.taskId,
     });
+  }, [movingBlockId]);
+
+  const handleMobileMoveStart = useCallback((draft: EditorDraft) => {
+    if (!draft.id) return;
+    setEditor(null);
+    setMovingBlockId(draft.id);
   }, []);
+
+  const handleMobileMoveBlock = useCallback((blockId: string, date: string, startMinute: number) => {
+    const block = blocks.find(candidate => candidate.id === blockId);
+    if (!block) return;
+    updateBlock(blockId, { date, startMinute });
+    if (block.taskId) {
+      updateTask(block.taskId, {
+        date,
+        time: `${String(Math.floor(startMinute / 60)).padStart(2, "0")}:${String(startMinute % 60).padStart(2, "0")}`,
+      });
+    }
+    setMovingBlockId(null);
+  }, [blocks, updateBlock, updateTask]);
 
   const monthLabel = days[Math.floor(days.length / 2)].toLocaleDateString(undefined, {
     month: "long", year: "numeric",
@@ -227,6 +258,99 @@ export const WeekView = () => {
   const gridCols = viewMode === "today"
     ? "grid-cols-[64px_1fr]"
     : "grid-cols-[64px_repeat(7,1fr)]";
+
+  if (isMobile) {
+    return (
+      <>
+        <MobileWeekView
+          onOpenSettings={onOpenSettings}
+          onOpenSearch={() => setSearchOpen(true)}
+          tasks={tasks}
+          categories={categories}
+          categoriesById={categoriesById}
+          blocks={blocks}
+          blocksByDate={blocksByDate}
+          scheduledTaskIds={scheduledTaskIds}
+          scheduledMinutesByTask={scheduledMinutesByTask}
+          todayISO={todayISO}
+          onOpenEditor={setEditor}
+          onResizeBlock={handleBlockResize}
+          onScheduleTaskDrop={handleTaskDrop}
+          onAutoPlan={autoPlanScope}
+          onOpenReset={handleOpenReset}
+          getEditorDraftForTask={getEditorDraftForTask}
+          movingBlockId={movingBlockId}
+          onStartMoveBlock={setMovingBlockId}
+          onMoveBlock={handleMobileMoveBlock}
+          onCancelMove={() => setMovingBlockId(null)}
+          deleteBlock={deleteBlock}
+          updateTask={updateTask}
+        />
+
+        <BlockEditor
+          open={editor !== null}
+          draft={editor}
+          categories={categories}
+          onCancel={() => setEditor(null)}
+          onSave={draft => handleSave(draft, () => setEditor(null))}
+          onDelete={id => handleDelete(id, () => setEditor(null))}
+        />
+
+        <SearchDialog
+          open={searchOpen}
+          onOpenChange={setSearchOpen}
+          tasks={tasks}
+          blocks={blocks}
+          onSelectBlock={(block) => {
+            setSearchOpen(false);
+            setEditor({
+              id: block.id,
+              title: block.title,
+              notes: block.notes,
+              date: block.date,
+              startMinute: block.startMinute,
+              durationMinutes: block.durationMinutes,
+              categoryId: block.categoryId,
+              taskId: block.taskId,
+            });
+          }}
+          onSelectTask={(task) => {
+            setSearchOpen(false);
+            setEditor(getEditorDraftForTask(task));
+          }}
+        />
+
+        <Dialog open={resetDialogOpen} onOpenChange={setResetDialogOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Reset remaining day?</DialogTitle>
+              <DialogDescription>
+                {resetTargets.length === 0
+                  ? "No unfinished blocks found for today."
+                  : `This will clear ${resetTargets.length} unfinished block${resetTargets.length !== 1 ? "s" : ""} and move linked tasks back to your backlog. Completed tasks stay untouched.`}
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter>
+              <button
+                onClick={() => setResetDialogOpen(false)}
+                className="rounded-md px-4 py-2 text-[13px] font-medium text-muted-foreground transition-colors hover:bg-foreground/5"
+              >
+                Cancel
+              </button>
+              {resetTargets.length > 0 && (
+                <button
+                  onClick={handleConfirmReset}
+                  className="rounded-md bg-destructive px-4 py-2 text-[13px] font-medium text-destructive-foreground transition-colors hover:bg-destructive/90"
+                >
+                  Reset Day
+                </button>
+              )}
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      </>
+    );
+  }
 
   return (
     <DndContext
@@ -551,6 +675,7 @@ export const WeekView = () => {
           onCancel={() => setEditor(null)}
           onSave={draft => handleSave(draft, () => setEditor(null))}
           onDelete={id => handleDelete(id, () => setEditor(null))}
+          onMove={handleMobileMoveStart}
         />
 
         <SearchDialog

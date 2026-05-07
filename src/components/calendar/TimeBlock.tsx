@@ -10,9 +10,24 @@ type Props = {
   category: Category | undefined;
   onClick: () => void;
   onResize: (block: TimeBlock, durationMinutes: number) => void;
+  readOnly?: boolean;
+  enableDrag?: boolean;
+  mobile?: boolean;
+  isMoveSource?: boolean;
+  onLongPress?: (block: TimeBlock) => void;
 };
 
-export const TimeBlockView = ({ block, category, onClick, onResize }: Props) => {
+export const TimeBlockView = ({
+  block,
+  category,
+  onClick,
+  onResize,
+  readOnly = false,
+  enableDrag = true,
+  mobile = false,
+  isMoveSource = false,
+  onLongPress,
+}: Props) => {
   const [previewDuration, setPreviewDuration] = useState<number | null>(null);
   const [isResizing, setIsResizing] = useState(false);
   const resizeStartY = useRef<number | null>(null);
@@ -23,6 +38,7 @@ export const TimeBlockView = ({ block, category, onClick, onResize }: Props) => 
   const pressPointerId = useRef<number | null>(null);
   const pressStart = useRef<{ x: number; y: number } | null>(null);
   const handledPointerOpen = useRef(false);
+  const longPressTimer = useRef<number | null>(null);
 
   useEffect(() => {
     if (!isResizing) {
@@ -77,12 +93,13 @@ export const TimeBlockView = ({ block, category, onClick, onResize }: Props) => 
   const height = Math.max((durationMinutes / 60) * HOUR_PX - 2, 18);
   const isTinyBlock = height < 34;
   const isCompactBlock = height < 48;
-  const resizeHandleHeight = isTinyBlock ? 4 : isCompactBlock ? 6 : 12;
+  const resizeHandleHeight = readOnly ? 0 : Math.max(24, isTinyBlock ? 24 : isCompactBlock ? 24 : 28);
   const color = category?.color ?? "#9CA3AF";
 
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
     id: block.id,
     data: { block },
+    disabled: !enableDrag,
   });
 
   const startResize = (pointerId: number, clientY: number) => {
@@ -95,6 +112,13 @@ export const TimeBlockView = ({ block, category, onClick, onResize }: Props) => 
     setIsResizing(true);
   };
 
+  const clearLongPress = () => {
+    if (longPressTimer.current !== null) {
+      window.clearTimeout(longPressTimer.current);
+      longPressTimer.current = null;
+    }
+  };
+
   return (
     <button
       ref={setNodeRef}
@@ -102,10 +126,21 @@ export const TimeBlockView = ({ block, category, onClick, onResize }: Props) => 
       {...listeners}
       {...attributes}
       onPointerDown={e => {
+        if (enableDrag) {
+          listeners?.onPointerDown?.(e);
+        }
         if (e.button !== 0) return;
         pressPointerId.current = e.pointerId;
         pressStart.current = { x: e.clientX, y: e.clientY };
         handledPointerOpen.current = false;
+        if (mobile && onLongPress && !readOnly) {
+          clearLongPress();
+          longPressTimer.current = window.setTimeout(() => {
+            suppressClick.current = true;
+            handledPointerOpen.current = true;
+            onLongPress(block);
+          }, 360);
+        }
       }}
       onPointerMove={e => {
         if (pressPointerId.current !== e.pointerId || !pressStart.current) return;
@@ -113,9 +148,11 @@ export const TimeBlockView = ({ block, category, onClick, onResize }: Props) => 
         const movedY = Math.abs(e.clientY - pressStart.current.y);
         if (movedX > 4 || movedY > 4) {
           pressStart.current = null;
+          clearLongPress();
         }
       }}
       onPointerUp={e => {
+        clearLongPress();
         if (pressPointerId.current !== e.pointerId) return;
         const start = pressStart.current;
         pressPointerId.current = null;
@@ -131,6 +168,7 @@ export const TimeBlockView = ({ block, category, onClick, onResize }: Props) => 
       onPointerCancel={() => {
         pressPointerId.current = null;
         pressStart.current = null;
+        clearLongPress();
       }}
       onClick={e => {
         e.stopPropagation();
@@ -150,7 +188,8 @@ export const TimeBlockView = ({ block, category, onClick, onResize }: Props) => 
         isTinyBlock ? "px-2 py-1" : isCompactBlock ? "px-2 py-1.5" : "px-2.5 py-2 pb-3",
         block.completed && "opacity-50",
         isDragging && "opacity-30",
-        isResizing && "shadow-md"
+        isResizing && "shadow-md",
+        isMoveSource && "ring-2 ring-primary ring-offset-2 ring-offset-background"
       )}
       style={{
         top,
@@ -159,8 +198,11 @@ export const TimeBlockView = ({ block, category, onClick, onResize }: Props) => 
         background: `linear-gradient(180deg, ${color}30, ${color}1a)`,
         color: "hsl(var(--foreground))",
         cursor: "default",
-        touchAction: "none",
+        touchAction: mobile ? "manipulation" : "none",
         boxShadow: `inset 0 1px 0 rgba(255,255,255,0.28), inset 4px 0 0 ${color}`,
+        userSelect: "none",
+        WebkitUserSelect: "none",
+        WebkitTouchCallout: "none",
       }}
     >
       {isTinyBlock ? (
@@ -200,20 +242,23 @@ export const TimeBlockView = ({ block, category, onClick, onResize }: Props) => 
           {formatMinuteRange(block.startMinute, previewDuration)}
         </div>
       )}
-      <span
-        role="presentation"
-        onPointerDown={e => {
-          e.preventDefault();
-          e.stopPropagation();
-          startResize(e.pointerId, e.clientY);
-        }}
-        className="absolute bottom-0 rounded-b-2xl"
-        style={{
-          left: 4,
-          right: 4,
-          height: resizeHandleHeight,
-        }}
-      />
+      {!readOnly && (
+        <span
+          role="presentation"
+          onPointerDown={e => {
+            e.preventDefault();
+            e.stopPropagation();
+            clearLongPress();
+            startResize(e.pointerId, e.clientY);
+          }}
+          className="absolute bottom-0 rounded-b-2xl"
+          style={{
+            left: 4,
+            right: 4,
+            height: resizeHandleHeight,
+          }}
+        />
+      )}
     </button>
   );
 };

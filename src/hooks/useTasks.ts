@@ -93,5 +93,18 @@ export function useTasks() {
 
   const clearCompleted = () => setTasks(prev => prev.filter(t => !t.completed));
 
-  return { tasks, addTask, updateTask, toggleTask, deleteTask, clearCompleted };
+  const reorderTasks = (taskId: string, targetTaskId: string) =>
+    setTasks(prev => {
+      if (taskId === targetTaskId) return prev;
+      const sourceIndex = prev.findIndex(task => task.id === taskId);
+      const targetIndex = prev.findIndex(task => task.id === targetTaskId);
+      if (sourceIndex === -1 || targetIndex === -1) return prev;
+
+      const next = [...prev];
+      const [task] = next.splice(sourceIndex, 1);
+      next.splice(targetIndex, 0, task);
+      return next;
+    });
+
+  return { tasks, addTask, updateTask, toggleTask, deleteTask, clearCompleted, reorderTasks };
 }

@@ -2,12 +2,14 @@ import { useEffect, useState } from "react";
 import { Task, Priority, RepeatRule } from "@/lib/types";
 import { todayISO } from "@/lib/task-utils";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from "@/components/ui/drawer";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import { DEFAULT_SESSION_DURATION, DEFAULT_TASK_DURATION } from "@/lib/scheduling";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 const DOW_LABELS = ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"];
 
@@ -57,6 +59,7 @@ export const TaskDialog = ({ open, onOpenChange, initial, onSave, onUpdate }: Pr
   const [priority, setPriority] = useState<Priority>("med");
   const [repeatMode, setRepeatMode] = useState<RepeatMode>("none");
   const [repeatDays, setRepeatDays] = useState<number[]>([]);
+  const isMobile = useIsMobile();
 
   useEffect(() => {
     if (open) {
@@ -111,16 +114,8 @@ export const TaskDialog = ({ open, onOpenChange, initial, onSave, onUpdate }: Pr
 
   const presets = quickDates();
 
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-sm gap-0 rounded-xl border border-border bg-card p-0 shadow-soft">
-        <DialogHeader className="space-y-0 px-5 pb-3 pt-5">
-          <DialogTitle className="text-base font-semibold tracking-tight">
-            {initial ? "Edit task" : "New task"}
-          </DialogTitle>
-        </DialogHeader>
-
-        <form onSubmit={submit} className="space-y-4 px-5 pb-5">
+  const form = (
+    <form onSubmit={submit} className="space-y-4 px-5 pb-5">
           <Input
             autoFocus
             value={title}
@@ -305,6 +300,30 @@ export const TaskDialog = ({ open, onOpenChange, initial, onSave, onUpdate }: Pr
             </Button>
           </div>
         </form>
+  );
+
+  if (isMobile) {
+    return (
+      <Drawer open={open} onOpenChange={onOpenChange} shouldScaleBackground={false}>
+        <DrawerContent className="max-h-[90svh] rounded-t-[24px] px-0 pb-[calc(env(safe-area-inset-bottom)+16px)]">
+          <DrawerHeader className="px-5 pb-2 pt-2 text-left">
+            <DrawerTitle>{initial ? "Edit task" : "New task"}</DrawerTitle>
+          </DrawerHeader>
+          <div className="overflow-y-auto">{form}</div>
+        </DrawerContent>
+      </Drawer>
+    );
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-sm gap-0 rounded-xl border border-border bg-card p-0 shadow-soft">
+        <DialogHeader className="space-y-0 px-5 pb-3 pt-5">
+          <DialogTitle className="text-base font-semibold tracking-tight">
+            {initial ? "Edit task" : "New task"}
+          </DialogTitle>
+        </DialogHeader>
+        {form}
       </DialogContent>
     </Dialog>
   );

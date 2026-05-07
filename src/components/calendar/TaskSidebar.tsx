@@ -1,9 +1,10 @@
-import { useMemo, useState, useRef, useEffect, useCallback, type ReactNode } from "react";
+import { useState, useRef, useEffect, useCallback, type DragEventHandler } from "react";
 import type { Task } from "@/lib/types";
 import { todayISO } from "@/lib/task-utils";
 import { Trash2, CheckCircle2, Plus, Pencil, CalendarPlus } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useTasksCtx } from "@/hooks/useTasksCtx";
+import { TaskListContent } from "./TaskListContent";
 
 const priorityDot: Record<Task["priority"], string> = {
   high: "bg-red-400",
@@ -77,30 +78,24 @@ export const TaskSidebar = ({
 
   useEffect(() => () => { if (deleteTimerRef.current) clearTimeout(deleteTimerRef.current); }, []);
 
-  const { unscheduled, thisWeek, scheduled } = useMemo(() => {
-    const unscheduled: Task[] = [];
-    const thisWeek: Task[] = [];
-    const scheduled: Task[] = [];
-
-    for (const t of tasks) {
-      if (t.completed) continue;
-      if (pendingDelete?.id === t.id) continue;
-      if (scheduledTaskIds?.has(t.id) || t.blockId) {
-        scheduled.push(t);
-      } else if (t.date >= weekStartISO && t.date <= weekEndISO) {
-        thisWeek.push(t);
-      } else {
-        unscheduled.push(t);
-      }
-    }
-
-    thisWeek.sort((a, b) => a.date.localeCompare(b.date));
-    unscheduled.sort((a, b) => a.date.localeCompare(b.date));
-
-    return { unscheduled, thisWeek, scheduled };
-  }, [tasks, weekStartISO, weekEndISO, pendingDelete, scheduledTaskIds]);
-
-  const isEmpty = unscheduled.length === 0 && thisWeek.length === 0 && scheduled.length === 0;
+  const scheduledCount = tasks.filter(task =>
+    !task.completed &&
+    pendingDelete?.id !== task.id &&
+    (scheduledTaskIds?.has(task.id) || task.blockId)
+  ).length;
+  const thisWeekCount = tasks.filter(task =>
+    !task.completed &&
+    pendingDelete?.id !== task.id &&
+    !(scheduledTaskIds?.has(task.id) || task.blockId) &&
+    task.date >= weekStartISO &&
+    task.date <= weekEndISO
+  ).length;
+  const backlogCount = tasks.filter(task =>
+    !task.completed &&
+    pendingDelete?.id !== task.id &&
+    !(scheduledTaskIds?.has(task.id) || task.blockId) &&
+    !(task.date >= weekStartISO && task.date <= weekEndISO)
+  ).length;
 
   return (
     <div className="flex w-[280px] shrink-0 flex-col bg-transparent">
@@ -133,9 +128,9 @@ export const TaskSidebar = ({
         </div>
 
         <div className="mt-3 grid grid-cols-3 gap-2">
-          <SummaryPill label="Backlog" value={unscheduled.length} />
-          <SummaryPill label="This Week" value={thisWeek.length} />
-          <SummaryPill label="Scheduled" value={scheduled.length} />
+          <SummaryPill label="Backlog" value={backlogCount} />
+          <SummaryPill label="This Week" value={thisWeekCount} />
+          <SummaryPill label="Scheduled" value={scheduledCount} />
         </div>
       </div>
 
@@ -161,81 +156,54 @@ export const TaskSidebar = ({
 
       {/* Task list */}
       <div className="scrollbar-thin flex-1 overflow-y-auto px-3 py-2.5">
-        {thisWeek.length > 0 && (
-          <TaskSection label="This week">
-            {thisWeek.map(t => (
-              <SidebarTask
-                key={t.id}
-                task={t}
-                onOpenTask={onOpenTask}
-                isEditing={editingId === t.id}
-                editInput={editInput}
-                onEditInputChange={setEditInput}
-                onStartEdit={() => { setEditingId(t.id); setEditInput(t.title); }}
-                onCommitEdit={commitEdit}
-                onCancelEdit={() => { setEditingId(null); setEditInput(""); }}
-                onDelete={() => handleDeleteTask(t)}
-                scheduledMinutes={scheduledMinutesByTask?.get(t.id)}
-              />
-            ))}
-          </TaskSection>
-        )}
-
-        {unscheduled.length > 0 && (
-          <TaskSection label="Backlog">
-            {unscheduled.map(t => (
-              <SidebarTask
-                key={t.id}
-                task={t}
-                onOpenTask={onOpenTask}
-                isEditing={editingId === t.id}
-                editInput={editInput}
-                onEditInputChange={setEditInput}
-                onStartEdit={() => { setEditingId(t.id); setEditInput(t.title); }}
-                onCommitEdit={commitEdit}
-                onCancelEdit={() => { setEditingId(null); setEditInput(""); }}
-                onDelete={() => handleDeleteTask(t)}
-              />
-            ))}
-          </TaskSection>
-        )}
-
-        {scheduled.length > 0 && (
-          <TaskSection label="Scheduled">
-            {scheduled.map(t => (
-              <SidebarTask
-                key={t.id}
-                task={t}
-                onOpenTask={onOpenTask}
-                scheduled
-                isEditing={false}
-                editInput=""
-                onEditInputChange={() => {}}
-                onStartEdit={() => {}}
-                onCommitEdit={() => {}}
-                onCancelEdit={() => {}}
-                onDelete={() => handleDeleteTask(t)}
-                scheduledMinutes={scheduledMinutesByTask?.get(t.id)}
-              />
-            ))}
-          </TaskSection>
-        )}
-
-        {isEmpty && !adding && (
-          <div className="surface-card mt-10 flex flex-col items-center px-4 py-8 text-center">
-            <CheckCircle2 className="mb-3 h-7 w-7 text-muted-foreground/30" />
-            <p className="text-[13px] font-medium text-foreground">No tasks yet</p>
-            <p className="mt-1 max-w-[22ch] text-[11px] leading-relaxed text-muted-foreground/70">
-              Start with a small backlog and then pull tasks into your day.
-            </p>
-            <button
-              onClick={() => setAdding(true)}
-              className="mt-3 rounded-full bg-primary px-3 py-1.5 text-[11px] font-medium text-primary-foreground"
-            >
-              Add your first task
-            </button>
-          </div>
-        )}
+        <TaskListContent
+          tasks={tasks}
+          weekStartISO={weekStartISO}
+          weekEndISO={weekEndISO}
+          scheduledTaskIds={scheduledTaskIds}
+          scheduledMinutesByTask={scheduledMinutesByTask}
+          pendingDeleteId={pendingDelete?.id}
+          dragAdapter={(task, scheduled) => scheduled ? undefined : {
+            draggable: true,
+            onDragStart: e => {
+              e.dataTransfer.effectAllowed = "copy";
+              e.dataTransfer.setData("task-id", task.id);
+            },
+            title: "Drag onto calendar to create a time block",
+          }}
+          renderTask={({ task, scheduled, scheduledMinutes, dragAdapter }) => (
+            <SidebarTask
+              key={task.id}
+              task={task}
+              onOpenTask={onOpenTask}
+              scheduled={scheduled}
+              isEditing={!scheduled && editingId === task.id}
+              editInput={editInput}
+              onEditInputChange={setEditInput}
+              onStartEdit={() => { setEditingId(task.id); setEditInput(task.title); }}
+              onCommitEdit={commitEdit}
+              onCancelEdit={() => { setEditingId(null); setEditInput(""); }}
+              onDelete={() => handleDeleteTask(task)}
+              scheduledMinutes={scheduledMinutes}
+              dragAdapter={dragAdapter}
+            />
+          )}
+          emptyState={!adding ? (
+            <div className="surface-card mt-10 flex flex-col items-center px-4 py-8 text-center">
+              <CheckCircle2 className="mb-3 h-7 w-7 text-muted-foreground/30" />
+              <p className="text-[13px] font-medium text-foreground">No tasks yet</p>
+              <p className="mt-1 max-w-[22ch] text-[11px] leading-relaxed text-muted-foreground/70">
+                Start with a small backlog and then pull tasks into your day.
+              </p>
+              <button
+                onClick={() => setAdding(true)}
+                className="mt-3 rounded-full bg-primary px-3 py-1.5 text-[11px] font-medium text-primary-foreground"
+              >
+                Add your first task
+              </button>
+            </div>
+          ) : null}
+        />
       </div>
 
       {/* Undo delete bar */}
@@ -267,15 +235,6 @@ const SummaryPill = ({ label, value }: { label: string; value: number }) => (
   </div>
 );
 
-const TaskSection = ({ label, children }: { label: string; children: ReactNode }) => (
-  <section className="mb-4">
-    <p className="px-2 pb-2 text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground/65">
-      {label}
-    </p>
-    <div className="space-y-2">{children}</div>
-  </section>
-);
-
 type SidebarTaskProps = {
   task: Task;
   onOpenTask: (t: Task) => void;
@@ -288,6 +247,11 @@ type SidebarTaskProps = {
   onCancelEdit: () => void;
   onDelete: () => void;
   scheduledMinutes?: number;
+  dragAdapter?: {
+    draggable?: boolean;
+    onDragStart?: DragEventHandler<HTMLDivElement>;
+    title?: string;
+  };
 };
 
 const SidebarTask = ({
@@ -302,6 +266,7 @@ const SidebarTask = ({
   onCancelEdit,
   onDelete,
   scheduledMinutes,
+  dragAdapter,
 }: SidebarTaskProps) => {
   const editRef = useRef<HTMLInputElement>(null);
 
@@ -332,19 +297,15 @@ const SidebarTask = ({
 
   return (
     <div
-      draggable={!scheduled}
-      onDragStart={e => {
-        if (scheduled) return;
-        e.dataTransfer.effectAllowed = "copy";
-        e.dataTransfer.setData("task-id", task.id);
-      }}
+      draggable={dragAdapter?.draggable}
+      onDragStart={dragAdapter?.onDragStart}
       onClick={scheduled ? () => onOpenTask(task) : undefined}
       className={cn(
         "surface-card group flex items-start gap-3 px-3 py-3 transition-all",
         !scheduled && "cursor-grab active:cursor-grabbing hover:-translate-y-px hover:bg-card/95",
         scheduled && "cursor-pointer"
       )}
-      title={scheduled ? "Open scheduled block" : "Drag onto calendar to create a time block"}
+      title={scheduled ? "Open scheduled block" : dragAdapter?.title}
     >
       <span className={cn("mt-1.5 h-2 w-2 shrink-0 rounded-full", priorityDot[task.priority])} />
 
