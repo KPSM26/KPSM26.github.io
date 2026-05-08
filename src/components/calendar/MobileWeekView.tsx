@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowDown,
   ArrowUp,
@@ -9,11 +9,13 @@ import {
   MoreHorizontal,
   Search,
   Settings,
+  Target,
   Trash2,
   X,
 } from "lucide-react";
 import { DayColumn } from "./DayColumn";
 import { TaskListContent, type TaskListSection } from "./TaskListContent";
+import { PlanningSummary } from "./PlanningSummary";
 import { TaskDialog } from "@/components/daydock/TaskDialog";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -46,7 +48,7 @@ import {
 import { DEFAULT_SESSION_DURATION, DEFAULT_TASK_DURATION, PLANNING_END_MINUTE, PLANNING_START_MINUTE } from "@/lib/scheduling";
 import { useTasksCtx } from "@/hooks/useTasksCtx";
 
-type MobileTab = "schedule" | "tasks";
+type MobileTab = "schedule" | "tasks" | "plan";
 type MobileView = "day" | "week";
 
 type Props = {
@@ -65,6 +67,13 @@ type Props = {
   onScheduleTaskDrop: (taskId: string, minute: number, date: string) => void;
   onAutoPlan: (scope: "today" | "week") => void;
   onOpenReset: () => void;
+  activeIntention: string;
+  planningStatusVisible: boolean;
+  todayScheduledMinutes: number;
+  todayUnscheduledMinutes: number;
+  todayPlanningState: "realistic" | "tight" | "overloaded";
+  onSetIntention: (text: string) => void;
+  onClearIntention: () => void;
   getEditorDraftForTask: (task: Task) => EditorDraft;
   movingBlockId: string | null;
   onStartMoveBlock: (blockId: string) => void;
@@ -332,6 +341,13 @@ export const MobileWeekView = ({
   onScheduleTaskDrop,
   onAutoPlan,
   onOpenReset,
+  activeIntention,
+  planningStatusVisible,
+  todayScheduledMinutes,
+  todayUnscheduledMinutes,
+  todayPlanningState,
+  onSetIntention,
+  onClearIntention,
   getEditorDraftForTask,
   movingBlockId,
   onStartMoveBlock,
@@ -350,7 +366,15 @@ export const MobileWeekView = ({
   const [taskSchedule, setTaskSchedule] = useState<TaskScheduleState | null>(null);
   const [openSwipeId, setOpenSwipeId] = useState<string | null>(null);
   const [reorderTaskId, setReorderTaskId] = useState<string | null>(null);
+  const [intentionDraft, setIntentionDraft] = useState(activeIntention);
+  const [intentionEditing, setIntentionEditing] = useState(false);
   const weekSwipeStartX = useRef<number | null>(null);
+
+  useEffect(() => {
+    if (!intentionEditing) {
+      setIntentionDraft(activeIntention);
+    }
+  }, [activeIntention, intentionEditing]);
 
   const selectedDayBlocks = blocksByDate.get(selectedDayISO) ?? [];
   const rollingDays = useMemo(
@@ -418,6 +442,16 @@ export const MobileWeekView = ({
 
   const selectedMoveBlock = movingBlockId ? blocks.find(block => block.id === movingBlockId) : null;
 
+  const commitIntention = () => {
+    const next = intentionDraft.trim();
+    if (next) {
+      onSetIntention(next);
+    } else {
+      onClearIntention();
+    }
+    setIntentionEditing(false);
+  };
+
   return (
     <div className="flex h-screen flex-col bg-background">
       <header className="sticky top-0 z-30 border-b border-border/60 bg-background/95 px-4 pb-3 pt-[max(env(safe-area-inset-top),12px)] backdrop-blur-md">
@@ -429,7 +463,7 @@ export const MobileWeekView = ({
                 : `${formatDayLabel(weekStartISO)} - ${formatDayLabel(weekEndISO)}`}
             </p>
             <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
-              {mobileTab === "schedule" ? "Schedule" : "Tasks"}
+              {mobileTab === "schedule" ? "Schedule" : mobileTab === "tasks" ? "Tasks" : "Plan"}
             </p>
           </div>
 
@@ -642,7 +676,7 @@ export const MobileWeekView = ({
               </div>
             </div>
           )
-        ) : (
+        ) : mobileTab === "tasks" ? (
           <div className="flex h-full flex-col px-3 pt-3">
             <div className="mb-3 flex items-center justify-between">
               <div>
@@ -717,6 +751,132 @@ export const MobileWeekView = ({
               />
             </div>
           </div>
+        ) : (
+          <div className="flex h-full flex-col px-3 pt-3">
+            <div className="space-y-3">
+              <div className="surface-card rounded-[24px] px-4 py-4">
+                <div className="flex items-center gap-2">
+                  <span className="grid h-10 w-10 place-items-center rounded-2xl bg-primary/10 text-primary">
+                    <Target className="h-4 w-4" />
+                  </span>
+                  <div>
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+                      Focus
+                    </p>
+                    <p className="text-[14px] font-semibold tracking-[-0.03em] text-foreground">
+                      What matters today?
+                    </p>
+                  </div>
+                </div>
+
+                <div className="mt-4">
+                  {intentionEditing ? (
+                    <div className="space-y-2">
+                      <input
+                        autoFocus
+                        value={intentionDraft}
+                        onChange={event => setIntentionDraft(event.target.value)}
+                        onBlur={commitIntention}
+                        onKeyDown={event => {
+                          if (event.key === "Enter") {
+                            event.preventDefault();
+                            commitIntention();
+                          }
+                          if (event.key === "Escape") {
+                            setIntentionDraft(activeIntention);
+                            setIntentionEditing(false);
+                          }
+                        }}
+                        placeholder="Add a focus for today"
+                        className="h-12 w-full rounded-2xl border border-border/70 bg-background/80 px-4 text-[14px] text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
+                      />
+                      <div className="flex items-center gap-2">
+                        <Button className="h-10 rounded-xl px-4 text-[12px]" onClick={commitIntention}>
+                          Save focus
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          className="h-10 rounded-xl px-4 text-[12px]"
+                          onClick={() => {
+                            setIntentionDraft(activeIntention);
+                            setIntentionEditing(false);
+                          }}
+                        >
+                          Cancel
+                        </Button>
+                      </div>
+                    </div>
+                  ) : activeIntention ? (
+                    <div className="rounded-2xl border border-border/70 bg-background/70 px-4 py-4">
+                      <p className="text-[15px] font-medium text-foreground">{activeIntention}</p>
+                      <div className="mt-3 flex items-center gap-2">
+                        <Button
+                          variant="outline"
+                          className="h-10 rounded-xl px-4 text-[12px]"
+                          onClick={() => {
+                            setIntentionDraft(activeIntention);
+                            setIntentionEditing(true);
+                          }}
+                        >
+                          Edit focus
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          className="h-10 rounded-xl px-4 text-[12px]"
+                          onClick={() => {
+                            setIntentionDraft("");
+                            onClearIntention();
+                          }}
+                        >
+                          Clear
+                        </Button>
+                      </div>
+                    </div>
+                  ) : (
+                    <Button
+                      variant="outline"
+                      className="h-12 w-full rounded-2xl justify-start px-4 text-[13px] text-muted-foreground"
+                      onClick={() => {
+                        setIntentionDraft("");
+                        setIntentionEditing(true);
+                      }}
+                    >
+                      Add a focus for today
+                    </Button>
+                  )}
+                </div>
+              </div>
+
+              {planningStatusVisible && (
+                <div className="surface-card rounded-[24px] px-4 py-4">
+                  <PlanningSummary
+                    className="w-full border-none bg-transparent px-0 py-0 shadow-none"
+                    scheduledMinutes={todayScheduledMinutes}
+                    unscheduledMinutes={todayUnscheduledMinutes}
+                    planningState={todayPlanningState}
+                    showPlanningStatus={planningStatusVisible}
+                    onAutoPlanToday={() => onAutoPlan("today")}
+                    onReplanWeek={() => onAutoPlan("week")}
+                  />
+                </div>
+              )}
+
+              <div className="surface-card rounded-[24px] px-4 py-4">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+                  Utilities
+                </p>
+                <div className="mt-3 grid grid-cols-1 gap-2">
+                  <Button
+                    variant="outline"
+                    className="h-12 justify-start rounded-2xl px-4 text-[13px]"
+                    onClick={onOpenReset}
+                  >
+                    Reset Day
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </div>
         )}
       </main>
 
@@ -725,12 +885,15 @@ export const MobileWeekView = ({
         style={{ paddingBottom: "calc(env(safe-area-inset-bottom) + 12px)" }}
       >
         <Tabs value={mobileTab} onValueChange={value => setMobileTab(value as MobileTab)}>
-          <TabsList className="grid h-14 w-full grid-cols-2 rounded-2xl bg-secondary/80 p-1">
+          <TabsList className="grid h-14 w-full grid-cols-3 rounded-2xl bg-secondary/80 p-1">
             <TabsTrigger value="schedule" className="h-full rounded-xl text-[13px]">
               Schedule
             </TabsTrigger>
             <TabsTrigger value="tasks" className="h-full rounded-xl text-[13px]">
               Tasks
+            </TabsTrigger>
+            <TabsTrigger value="plan" className="h-full rounded-xl text-[13px]">
+              Plan
             </TabsTrigger>
           </TabsList>
         </Tabs>

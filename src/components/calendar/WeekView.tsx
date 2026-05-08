@@ -278,6 +278,13 @@ export const WeekView = ({ onOpenSettings }: WeekViewProps) => {
           onScheduleTaskDrop={handleTaskDrop}
           onAutoPlan={autoPlanScope}
           onOpenReset={handleOpenReset}
+          activeIntention={activeIntention}
+          planningStatusVisible={settings.planningStatusVisible}
+          todayScheduledMinutes={todayScheduledMinutes}
+          todayUnscheduledMinutes={todayUnscheduledMinutes}
+          todayPlanningState={todayPlanningState}
+          onSetIntention={text => setIntention(text, todayISO)}
+          onClearIntention={clearIntention}
           getEditorDraftForTask={getEditorDraftForTask}
           movingBlockId={movingBlockId}
           onStartMoveBlock={setMovingBlockId}
